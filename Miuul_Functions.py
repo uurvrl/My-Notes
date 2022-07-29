@@ -205,15 +205,26 @@ def num_summary(dataframe, numerical_col, plot=False):
         plt.title(numerical_col)
         plt.show(block=True)
 
-def plot_importance(model, features, num=len(X), save=False):
-    feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
-    plt.figure(figsize=(10, 10))
-    sns.set(font_scale=1)
-    sns.barplot(x="Value", y="Feature", data=feature_imp.sort_values(by="Value",
-                                                                      ascending=False)[0:num])
-    plt.title('Features')
-    plt.tight_layout()
-    plt.show(block=True)
-    if save:
-        plt.savefig('importances.png')
+def plot_feature_importance(importance,names,model_type):
+    # Create arrays from feature importance and feature names
+    feature_importance = np.array(importance)
+    feature_names = np.array(names)
+
+    # Create a DataFrame using a Dictionary
+    data = {'feature_names': feature_names, 'feature_importance': feature_importance}
+    fi_df = pd.DataFrame(data)
+
+    # Sort the DataFrame in order decreasing feature importance
+    fi_df.sort_values(by=['feature_importance'], ascending=False, inplace=True)
+
+    # Define size of bar plot
+    plt.figure(figsize=(25, 10))
+    # Plot Searborn bar chart
+    sns.barplot(x=fi_df['feature_importance'], y=fi_df['feature_names'])
+    # Add chart labels
+    plt.title(model_type + ' FEATURE IMPORTANCE')
+    plt.xlabel('FEATURE IMPORTANCE')
+    plt.ylabel('FEATURE NAMES')
+    plt.show()
+
 
