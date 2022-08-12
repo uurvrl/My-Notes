@@ -8,6 +8,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 import warnings
+
 warnings.simplefilter(action="ignore")
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -29,14 +30,17 @@ def check_df(dataframe, head=5):
     print("##################### Quantiles #####################")
     print(dataframe.quantile([0, 0.05, 0.50, 0.95, 0.99, 1]).T)
 
+
 def target_summary_with_cat(dataframe, target, categorical_col):
     print(categorical_col)
     print(pd.DataFrame({"TARGET_MEAN": dataframe.groupby(categorical_col)[target].mean(),
                         "Count": dataframe[categorical_col].value_counts(),
                         "Ratio": 100 * dataframe[categorical_col].value_counts() / len(dataframe)}), end="\n\n\n")
 
+
 def target_summary_with_num(dataframe, target, numerical_col):
     print(dataframe.groupby(target).agg({numerical_col: "mean"}), end="\n\n\n")
+
 
 def outlier_thresholds(dataframe, col_name, q1=0.25, q3=0.75):
     quartile1 = dataframe[col_name].quantile(q1)
@@ -46,12 +50,14 @@ def outlier_thresholds(dataframe, col_name, q1=0.25, q3=0.75):
     low_limit = quartile1 - 1.5 * interquantile_range
     return low_limit, up_limit
 
+
 def check_outlier(dataframe, col_name, q1=.25, q3=.75):
     low_limit, up_limit = outlier_thresholds(dataframe, col_name, q1, q3)
     if dataframe[(dataframe[col_name] > up_limit) | (dataframe[col_name] < low_limit)].any(axis=None):
         return True
     else:
         return False
+
 
 def grab_col_names(dataframe, cat_th=10, car_th=20):
     """
@@ -113,6 +119,7 @@ def grab_col_names(dataframe, cat_th=10, car_th=20):
     print(f'num_but_cat: {len(num_but_cat)}')
     return cat_cols, num_cols, cat_but_car
 
+
 def grab_outliers(dataframe, col_name, index=False):
     low, up = outlier_thresholds(dataframe, col_name)
 
@@ -125,15 +132,18 @@ def grab_outliers(dataframe, col_name, index=False):
         outlier_index = dataframe[((dataframe[col_name] < low) | (dataframe[col_name] > up))].index
         return outlier_index
 
+
 def remove_outlier(dataframe, col_name):
     low_limit, up_limit = outlier_thresholds(dataframe, col_name)
     df_without_outliers = dataframe[~((dataframe[col_name] < low_limit) | (dataframe[col_name] > up_limit))]
     return df_without_outliers
 
+
 def replace_with_thresholds(dataframe, variable):
     low_limit, up_limit = outlier_thresholds(dataframe, variable)
     dataframe.loc[(dataframe[variable] < low_limit), variable] = low_limit
     dataframe.loc[(dataframe[variable] > up_limit), variable] = up_limit
+
 
 def missing_values_table(dataframe, na_name=False):
     na_columns = [col for col in dataframe.columns if dataframe[col].isnull().sum() > 0]
@@ -145,6 +155,36 @@ def missing_values_table(dataframe, na_name=False):
 
     if na_name:
         return na_columns
+
+# Bu fonksiyon eksik değerlerin median veya mean ile doldurulmasını sağlar
+def quick_missing_imp(data, num_method="median", cat_length=20, target="SalePrice"):
+    variables_with_na = [col for col in data.columns if
+                         data[col].isnull().sum() > 0]  # Eksik değere sahip olan değişkenler listelenir
+
+    temp_target = data[target]
+
+    print("# BEFORE")
+    print(data[variables_with_na].isnull().sum(), "\n\n")  # Uygulama öncesi değişkenlerin eksik değerlerinin sayısı
+
+    # değişken object ve sınıf sayısı cat_lengthe eşit veya altındaysa boş değerleri mode ile doldur
+    data = data.apply(lambda x: x.fillna(x.mode()[0]) if (x.dtype == "O" and len(x.unique()) <= cat_length) else x,
+                      axis=0)
+
+    # num_method mean ise tipi object olmayan değişkenlerin boş değerleri ortalama ile dolduruluyor
+    if num_method == "mean":
+        data = data.apply(lambda x: x.fillna(x.mean()) if x.dtype != "O" else x, axis=0)
+    # num_method median ise tipi object olmayan değişkenlerin boş değerleri ortalama ile dolduruluyor
+    elif num_method == "median":
+        data = data.apply(lambda x: x.fillna(x.median()) if x.dtype != "O" else x, axis=0)
+
+    data[target] = temp_target
+
+    print("# AFTER \n Imputation method is 'MODE' for categorical variables!")
+    print(" Imputation method is '" + num_method.upper() + "' for numeric variables! \n")
+    print(data[variables_with_na].isnull().sum(), "\n\n")
+
+    return data
+df = quick_missing_imp(df, num_method="median", cat_length=17)
 
 def missing_vs_target(dataframe, target, na_columns):
     temp_df = dataframe.copy()
@@ -158,14 +198,17 @@ def missing_vs_target(dataframe, target, na_columns):
         print(pd.DataFrame({"TARGET_MEAN": temp_df.groupby(col)[target].mean(),
                             "Count": temp_df.groupby(col)[target].count()}), end="\n\n\n")
 
+
 def label_encoder(dataframe, binary_col):
     labelencoder = LabelEncoder()
     dataframe[binary_col] = labelencoder.fit_transform(dataframe[binary_col])
     return dataframe
 
+
 def one_hot_encoder(dataframe, categorical_cols, drop_first=True):
     dataframe = pd.get_dummies(dataframe, columns=categorical_cols, drop_first=drop_first)
     return dataframe
+
 
 def cat_summary(dataframe, col_name, plot=False):
     print(pd.DataFrame({col_name: dataframe[col_name].value_counts(),
@@ -175,12 +218,14 @@ def cat_summary(dataframe, col_name, plot=False):
         sns.countplot(x=dataframe[col_name], data=dataframe)
         plt.show(block=True)
 
+
 def rare_analyser(dataframe, target, cat_cols):
     for col in cat_cols:
         print(col, ":", len(dataframe[col].value_counts()))
         print(pd.DataFrame({"COUNT": dataframe[col].value_counts(),
                             "RATIO": dataframe[col].value_counts() / len(dataframe),
                             "TARGET_MEAN": dataframe.groupby(col)[target].mean()}), end="\n\n\n")
+
 
 def rare_encoder(dataframe, rare_perc):
     temp_df = dataframe.copy()
@@ -195,6 +240,7 @@ def rare_encoder(dataframe, rare_perc):
 
     return temp_df
 
+
 def num_summary(dataframe, numerical_col, plot=False):
     quantiles = [0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95, 0.99]
     print(dataframe[numerical_col].describe(quantiles).T)
@@ -205,7 +251,8 @@ def num_summary(dataframe, numerical_col, plot=False):
         plt.title(numerical_col)
         plt.show(block=True)
 
-def plot_feature_importance(importance,names,model_type):
+
+def plot_feature_importance(importance, names, model_type):
     # Create arrays from feature importance and feature names
     feature_importance = np.array(importance)
     feature_names = np.array(names)
@@ -227,6 +274,7 @@ def plot_feature_importance(importance,names,model_type):
     plt.ylabel('FEATURE NAMES')
     plt.show()
 
+
 def high_correlated_cols(dataframe, plot=False, corr_th=0.90):
     corr = dataframe.corr()
     cor_matrix = corr.abs()
@@ -239,6 +287,7 @@ def high_correlated_cols(dataframe, plot=False, corr_th=0.90):
         sns.heatmap(corr, cmap="RdBu")
         plt.show()
     return drop_list
+
 
 def target_correlation_matrix(dataframe, corr_th=0.5, target="Salary"):
     """
@@ -336,6 +385,7 @@ def all_models(X, y, test_size=0.2, random_state=12345, classification=True):
     print(all_models_df)
     return all_models_df
 
+
 all_models = all_models(X, y, test_size=0.2, random_state=46, classification=False)
 
 
@@ -374,9 +424,8 @@ def update_weights(Y, b, w, X, learning_rate):
 
 # train fonksiyonu
 def train(Y, initial_b, initial_w, X, learning_rate, num_iters):
-
     print("Starting gradient descent at b = {0}, w = {1}, mse = {2}".format(initial_b, initial_w,
-                                                                   cost_function(Y, initial_b, initial_w, X)))
+                                                                            cost_function(Y, initial_b, initial_w, X)))
 
     b = initial_b
     w = initial_w
@@ -387,13 +436,13 @@ def train(Y, initial_b, initial_w, X, learning_rate, num_iters):
         mse = cost_function(Y, b, w, X)
         cost_history.append(mse)
 
-
         if i % 100 == 0:
             print("iter={:d}    b={:.2f}    w={:.4f}    mse={:.4}".format(i, b, w, mse))
 
-
     print("After {0} iterations b = {1}, w = {2}, mse = {3}".format(num_iters, b, w, cost_function(Y, b, w, X)))
     return cost_history, b, w
+
+#############################################
 
 def correlation_matrix(df, cols):
     fig = plt.gcf()
@@ -403,6 +452,7 @@ def correlation_matrix(df, cols):
     fig = sns.heatmap(df[cols].corr(), annot=True, linewidths=0.5, annot_kws={'size': 12}, linecolor='w', cmap='RdBu')
     plt.show(block=True)
 
+
 def plot_confusion_matrix(y, y_pred):
     acc = round(accuracy_score(y, y_pred), 2)
     cm = confusion_matrix(y, y_pred)
@@ -411,7 +461,8 @@ def plot_confusion_matrix(y, y_pred):
     plt.ylabel('y')
     plt.title('Accuracy Score: {0}'.format(acc), size=10)
     plt.show()
-    
+
+
 def val_curve_params(model, X, y, param_name, param_range, scoring="roc_auc", cv=10):
     train_score, test_score = validation_curve(
         model, X=X, y=y, param_name=param_name, param_range=param_range, scoring=scoring, cv=cv)
@@ -431,67 +482,100 @@ def val_curve_params(model, X, y, param_name, param_range, scoring="roc_auc", cv
     plt.tight_layout()
     plt.legend(loc='best')
     plt.show(block=True)
-    
+
+
 def tree_graph(model, col_names, file_name):
     tree_str = export_graphviz(model, feature_names=col_names, filled=True, out_file=None)
     graph = pydotplus.graph_from_dot_data(tree_str)
     graph.write_png(file_name)
-    
-    
+
+
 def predict_with_rules(x):
     return ((((((0 if x[6] <= 0.671999990940094 else 1 if x[6] <= 0.6864999830722809 else
-        0) if x[0] <= 7.5 else 1) if x[5] <= 30.949999809265137 else ((1 if x[5
-        ] <= 32.45000076293945 else 1 if x[3] <= 10.5 else 0) if x[2] <= 53.0 else
-        ((0 if x[1] <= 111.5 else 0 if x[2] <= 72.0 else 1 if x[3] <= 31.0 else
-        0) if x[2] <= 82.5 else 1) if x[4] <= 36.5 else 0) if x[6] <=
-        0.5005000084638596 else (0 if x[1] <= 88.5 else (((0 if x[0] <= 1.0 else
-        1) if x[1] <= 98.5 else 1) if x[6] <= 0.9269999861717224 else 0) if x[1
-        ] <= 116.0 else 0 if x[4] <= 166.0 else 1) if x[2] <= 69.0 else ((0 if
-        x[2] <= 79.0 else 0 if x[1] <= 104.5 else 1) if x[3] <= 5.5 else 0) if
-        x[6] <= 1.098000019788742 else 1) if x[5] <= 45.39999961853027 else 0 if
-        x[7] <= 22.5 else 1) if x[7] <= 28.5 else (1 if x[5] <=
-        9.649999618530273 else 0) if x[5] <= 26.350000381469727 else (1 if x[1] <=
-        28.5 else ((0 if x[0] <= 11.5 else 1 if x[5] <= 31.25 else 0) if x[1] <=
-        94.5 else (1 if x[5] <= 36.19999885559082 else 0) if x[1] <= 97.5 else
+    0) if x[0] <= 7.5 else 1) if x[5] <= 30.949999809265137 else ((1 if x[5
+                                                                        ] <= 32.45000076293945 else 1 if x[
+                                                                                                             3] <= 10.5 else 0) if
+                                                                  x[2] <= 53.0 else
+                                                                  ((0 if x[1] <= 111.5 else 0 if x[2] <= 72.0 else 1 if
+                                                                  x[3] <= 31.0 else
+                                                                  0) if x[2] <= 82.5 else 1) if x[4] <= 36.5 else 0) if
+    x[6] <=
+    0.5005000084638596 else (0 if x[1] <= 88.5 else (((0 if x[0] <= 1.0 else
+                                                       1) if x[1] <= 98.5 else 1) if x[
+                                                                                         6] <= 0.9269999861717224 else 0) if
+    x[1
+    ] <= 116.0 else 0 if x[4] <= 166.0 else 1) if x[2] <= 69.0 else ((0 if
+                                                                      x[2] <= 79.0 else 0 if x[1] <= 104.5 else 1) if x[
+                                                                                                                          3] <= 5.5 else 0) if
+    x[6] <= 1.098000019788742 else 1) if x[5] <= 45.39999961853027 else 0 if
+    x[7] <= 22.5 else 1) if x[7] <= 28.5 else (1 if x[5] <=
+                                                    9.649999618530273 else 0) if x[5] <= 26.350000381469727 else (
+        1 if x[1] <=
+             28.5 else ((0 if x[0] <= 11.5 else 1 if x[5] <= 31.25 else 0) if x[1] <=
+                                                                              94.5 else (
+            1 if x[5] <= 36.19999885559082 else 0) if x[1] <= 97.5 else
         0) if x[6] <= 0.7960000038146973 else 0 if x[0] <= 3.0 else (1 if x[6] <=
-        0.9614999890327454 else 0) if x[3] <= 20.0 else 1) if x[1] <= 99.5 else
-        ((1 if x[5] <= 27.649999618530273 else 0 if x[0] <= 5.5 else (((1 if x[
-        0] <= 7.0 else 0) if x[1] <= 103.5 else 0) if x[1] <= 118.5 else 1) if
-        x[0] <= 9.0 else 0) if x[6] <= 0.19999999552965164 else ((0 if x[5] <=
-        36.14999961853027 else 1) if x[1] <= 113.0 else 1) if x[0] <= 1.5 else
-        (1 if x[6] <= 0.3620000034570694 else 1 if x[5] <= 30.050000190734863 else
-        0) if x[2] <= 67.0 else (((0 if x[6] <= 0.2524999976158142 else 1) if x
-        [1] <= 120.0 else 1 if x[6] <= 0.23899999260902405 else 1 if x[7] <=
-        30.5 else 0) if x[2] <= 83.0 else 0) if x[5] <= 34.45000076293945 else
-        1 if x[1] <= 101.0 else 0 if x[5] <= 43.10000038146973 else 1) if x[6] <=
-        0.5609999895095825 else ((0 if x[7] <= 34.5 else 1 if x[5] <=
-        33.14999961853027 else 0) if x[4] <= 120.5 else (1 if x[3] <= 47.5 else
-        0) if x[4] <= 225.0 else 0) if x[0] <= 6.5 else 1) if x[1] <= 127.5 else
-        (((((1 if x[1] <= 129.5 else ((1 if x[6] <= 0.5444999933242798 else 0) if
-        x[2] <= 56.0 else 0) if x[2] <= 71.0 else 1) if x[2] <= 73.0 else 0) if
-        x[5] <= 28.149999618530273 else (1 if x[1] <= 135.0 else 0) if x[3] <=
-        21.0 else 1) if x[4] <= 132.5 else 0) if x[1] <= 145.5 else 0 if x[7] <=
-        25.5 else ((0 if x[1] <= 151.0 else 1) if x[5] <= 27.09999942779541 else
-        ((1 if x[0] <= 6.5 else 0) if x[6] <= 0.3974999934434891 else 0) if x[2
-        ] <= 82.0 else 0) if x[7] <= 61.0 else 0) if x[5] <= 29.949999809265137
-         else ((1 if x[2] <= 61.0 else (((((0 if x[6] <= 0.18299999833106995 else
-        1) if x[0] <= 0.5 else 1 if x[5] <= 32.45000076293945 else 0) if x[2] <=
-        73.0 else 0) if x[0] <= 4.5 else 1 if x[6] <= 0.6169999837875366 else 0
-        ) if x[6] <= 1.1414999961853027 else 1) if x[5] <= 41.79999923706055 else
-        1 if x[6] <= 0.37299999594688416 else 1 if x[1] <= 142.5 else 0) if x[7
-        ] <= 30.5 else (((1 if x[6] <= 0.13649999350309372 else 0 if x[5] <=
-        32.45000076293945 else 1 if x[5] <= 33.05000114440918 else (0 if x[6] <=
-        0.25599999725818634 else (0 if x[1] <= 130.5 else 1) if x[0] <= 8.5 else
-        0) if x[0] <= 13.5 else 1) if x[2] <= 92.0 else 1) if x[5] <=
-        45.54999923706055 else 1) if x[6] <= 0.4294999986886978 else (1 if x[5] <=
-        40.05000114440918 else 0 if x[5] <= 40.89999961853027 else 1) if x[4] <=
-        333.5 else 1 if x[2] <= 64.0 else 0) if x[1] <= 157.5 else ((((1 if x[7
-        ] <= 25.5 else 0 if x[4] <= 87.5 else 1 if x[5] <= 45.60000038146973 else
-        0) if x[7] <= 37.5 else 1 if x[7] <= 56.5 else 0 if x[6] <=
-        0.22100000083446503 else 1) if x[6] <= 0.28849999606609344 else 0) if x
-        [6] <= 0.3004999905824661 else 1 if x[7] <= 44.0 else (0 if x[7] <=
-        51.0 else 1 if x[6] <= 1.1565000414848328 else 0) if x[0] <= 6.5 else 1
-        ) if x[4] <= 629.5 else 1 if x[6] <= 0.4124999940395355 else 0)
+                                                                          0.9614999890327454 else 0) if x[
+                                                                                                            3] <= 20.0 else 1) if
+    x[1] <= 99.5 else
+    ((1 if x[5] <= 27.649999618530273 else 0 if x[0] <= 5.5 else (((1 if x[
+                                                                             0] <= 7.0 else 0) if x[
+                                                                                                      1] <= 103.5 else 0) if
+                                                                  x[1] <= 118.5 else 1) if
+    x[0] <= 9.0 else 0) if x[6] <= 0.19999999552965164 else ((0 if x[5] <=
+                                                                   36.14999961853027 else 1) if x[1] <= 113.0 else 1) if
+    x[0] <= 1.5 else
+    (1 if x[6] <= 0.3620000034570694 else 1 if x[5] <= 30.050000190734863 else
+    0) if x[2] <= 67.0 else (((0 if x[6] <= 0.2524999976158142 else 1) if x
+                                                                          [1] <= 120.0 else 1 if x[
+                                                                                                     6] <= 0.23899999260902405 else 1 if
+    x[7] <=
+    30.5 else 0) if x[2] <= 83.0 else 0) if x[5] <= 34.45000076293945 else
+    1 if x[1] <= 101.0 else 0 if x[5] <= 43.10000038146973 else 1) if x[6] <=
+                                                                      0.5609999895095825 else (
+        (0 if x[7] <= 34.5 else 1 if x[5] <=
+                                     33.14999961853027 else 0) if x[4] <= 120.5 else (1 if x[3] <= 47.5 else
+                                                                                      0) if x[4] <= 225.0 else 0) if x[
+                                                                                                                         0] <= 6.5 else 1) if
+            x[1] <= 127.5 else
+            (((((1 if x[1] <= 129.5 else ((1 if x[6] <= 0.5444999933242798 else 0) if
+                                          x[2] <= 56.0 else 0) if x[2] <= 71.0 else 1) if x[2] <= 73.0 else 0) if
+               x[5] <= 28.149999618530273 else (1 if x[1] <= 135.0 else 0) if x[3] <=
+                                                                              21.0 else 1) if x[4] <= 132.5 else 0) if
+             x[1] <= 145.5 else 0 if x[7] <=
+                                     25.5 else ((0 if x[1] <= 151.0 else 1) if x[5] <= 27.09999942779541 else
+                                                ((1 if x[0] <= 6.5 else 0) if x[6] <= 0.3974999934434891 else 0) if x[2
+                                                                                                                    ] <= 82.0 else 0) if
+            x[7] <= 61.0 else 0) if x[5] <= 29.949999809265137
+            else ((1 if x[2] <= 61.0 else (((((0 if x[6] <= 0.18299999833106995 else
+                                               1) if x[0] <= 0.5 else 1 if x[5] <= 32.45000076293945 else 0) if x[2] <=
+                                                                                                                73.0 else 0) if
+                                            x[0] <= 4.5 else 1 if x[6] <= 0.6169999837875366 else 0
+                                            ) if x[6] <= 1.1414999961853027 else 1) if x[5] <= 41.79999923706055 else
+            1 if x[6] <= 0.37299999594688416 else 1 if x[1] <= 142.5 else 0) if x[7
+                                                                                ] <= 30.5 else (
+                ((1 if x[6] <= 0.13649999350309372 else 0 if x[5] <=
+                                                             32.45000076293945 else 1 if x[
+                                                                                             5] <= 33.05000114440918 else (
+                    0 if x[6] <=
+                         0.25599999725818634 else (0 if x[1] <= 130.5 else 1) if x[0] <= 8.5 else
+                    0) if x[0] <= 13.5 else 1) if x[2] <= 92.0 else 1) if x[5] <=
+                                                                          45.54999923706055 else 1) if x[
+                                                                                                           6] <= 0.4294999986886978 else (
+                1 if x[5] <=
+                     40.05000114440918 else 0 if x[5] <= 40.89999961853027 else 1) if x[4] <=
+                                                                                      333.5 else 1 if x[
+                                                                                                          2] <= 64.0 else 0) if
+            x[1] <= 157.5 else ((((1 if x[7
+                                        ] <= 25.5 else 0 if x[4] <= 87.5 else 1 if x[5] <= 45.60000038146973 else
+            0) if x[7] <= 37.5 else 1 if x[7] <= 56.5 else 0 if x[6] <=
+                                                                0.22100000083446503 else 1) if x[
+                                                                                                   6] <= 0.28849999606609344 else 0) if
+                                x
+                                [6] <= 0.3004999905824661 else 1 if x[7] <= 44.0 else (0 if x[7] <=
+                                                                                            51.0 else 1 if x[
+                                                                                                               6] <= 1.1565000414848328 else 0) if
+            x[0] <= 6.5 else 1
+                                ) if x[4] <= 629.5 else 1 if x[6] <= 0.4124999940395355 else 0)
 
-    
-    
+
