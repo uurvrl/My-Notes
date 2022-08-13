@@ -308,6 +308,44 @@ def target_correlation_matrix(dataframe, corr_th=0.5, target="Salary"):
     except:
         print("Yüksek threshold değeri, corr_th değerinizi düşürün!")
 
+# Regression models
+models = [('LR', LinearRegression()),
+          ("Ridge", Ridge()),
+          ("Lasso", Lasso()),
+          ("ElasticNet", ElasticNet()),
+          ('KNN', KNeighborsRegressor()),
+          ('CART', DecisionTreeRegressor()),
+          ('RF', RandomForestRegressor()),
+          ('SVR', SVR()),
+          ('GBM', GradientBoostingRegressor()),
+          ("XGBoost", XGBRegressor(objective='reg:squarederror')),
+          ("LightGBM", LGBMRegressor())]
+          # ("CatBoost", CatBoostRegressor(verbose=False))]
+
+for name, regressor in models:
+    rmse = np.mean(np.sqrt(-cross_val_score(regressor, X, y, cv=5, scoring="neg_mean_squared_error")))
+    print(f"RMSE: {round(rmse, 4)} ({name}) ")
+
+
+# Classification models
+models = [('LR', LogisticRegression(random_state=46)),
+          ('KNN', KNeighborsClassifier()),
+          ('CART', DecisionTreeClassifier(random_state=46)),
+          ('RF', RandomForestClassifier(random_state=46)),
+          ('SVM', SVC(gamma='auto', random_state=46)),
+          ('XGB', XGBClassifier(random_state=46)),
+          ("LightGBM", LGBMClassifier(random_state=46))
+          #,("CatBoost", CatBoostClassifier(verbose=False, random_state=46))
+          ]
+
+for name, model in models:
+    cv_results = cross_validate(model, X, y, cv=10, scoring=["accuracy", "f1", "roc_auc", "precision", "recall"])
+    print(f"########## {name} ##########")
+    print(f"Accuracy: {round(cv_results['test_accuracy'].mean(), 4)}")
+    print(f"Auc: {round(cv_results['test_roc_auc'].mean(), 4)}")
+    print(f"Recall: {round(cv_results['test_recall'].mean(), 4)}")
+    print(f"Precision: {round(cv_results['test_precision'].mean(), 4)}")
+    print(f"F1: {round(cv_results['test_f1'].mean(), 4)}")
 
 def all_models(X, y, test_size=0.2, random_state=12345, classification=True):
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, \
@@ -388,61 +426,6 @@ def all_models(X, y, test_size=0.2, random_state=12345, classification=True):
 
 all_models = all_models(X, y, test_size=0.2, random_state=46, classification=False)
 
-
-#####################################################################################
-# GRADIENT DESCENT FROM SCRATCH
-#####################################################################################
-
-# Cost function MSE
-def cost_function(Y, b, w, X):
-    m = len(Y)
-    sse = 0
-
-    for i in range(0, m):
-        y_hat = b + w * X[i]
-        y = Y[i]
-        sse += (y_hat - y) ** 2
-
-    mse = sse / m
-    return mse
-
-
-# update_weights
-def update_weights(Y, b, w, X, learning_rate):
-    m = len(Y)
-    b_deriv_sum = 0
-    w_deriv_sum = 0
-    for i in range(0, m):
-        y_hat = b + w * X[i]
-        y = Y[i]
-        b_deriv_sum += (y_hat - y)
-        w_deriv_sum += (y_hat - y) * X[i]
-    new_b = b - (learning_rate * 1 / m * b_deriv_sum)
-    new_w = w - (learning_rate * 1 / m * w_deriv_sum)
-    return new_b, new_w
-
-
-# train fonksiyonu
-def train(Y, initial_b, initial_w, X, learning_rate, num_iters):
-    print("Starting gradient descent at b = {0}, w = {1}, mse = {2}".format(initial_b, initial_w,
-                                                                            cost_function(Y, initial_b, initial_w, X)))
-
-    b = initial_b
-    w = initial_w
-    cost_history = []
-
-    for i in range(num_iters):
-        b, w = update_weights(Y, b, w, X, learning_rate)
-        mse = cost_function(Y, b, w, X)
-        cost_history.append(mse)
-
-        if i % 100 == 0:
-            print("iter={:d}    b={:.2f}    w={:.4f}    mse={:.4}".format(i, b, w, mse))
-
-    print("After {0} iterations b = {1}, w = {2}, mse = {3}".format(num_iters, b, w, cost_function(Y, b, w, X)))
-    return cost_history, b, w
-
-#############################################
 
 def correlation_matrix(df, cols):
     fig = plt.gcf()
