@@ -426,6 +426,59 @@ def all_models(X, y, test_size=0.2, random_state=12345, classification=True):
 
 all_models = all_models(X, y, test_size=0.2, random_state=46, classification=False)
 
+def base_models(X, y, scoring="roc_auc"):
+    print("Base Models....")
+    classifiers = [('LR', LogisticRegression()),
+                   ('KNN', KNeighborsClassifier()),
+                   ("SVC", SVC()),
+                   ("CART", DecisionTreeClassifier()),
+                   ("RF", RandomForestClassifier()),
+                   ('Adaboost', AdaBoostClassifier()),
+                   ('GBM', GradientBoostingClassifier()),
+                   ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss')),
+                   ('LightGBM', LGBMClassifier()),
+                   # ('CatBoost', CatBoostClassifier(verbose=False))
+                   ]
+
+    for name, classifier in classifiers:
+        cv_results = cross_validate(classifier, X, y, cv=3, scoring=scoring)
+        print(f"{scoring}: {round(cv_results['test_score'].mean(), 4)} ({name}) ")
+        
+def hyperparameter_optimization(X, y, cv=3, scoring="roc_auc"):
+    print("Hyperparameter Optimization....")
+    best_models = {}
+    for name, classifier, params in classifiers:
+        print(f"########## {name} ##########")
+        cv_results = cross_validate(classifier, X, y, cv=cv, scoring=scoring)
+        print(f"{scoring} (Before): {round(cv_results['test_score'].mean(), 4)}")
+
+        gs_best = GridSearchCV(classifier, params, cv=cv, n_jobs=-1, verbose=False).fit(X, y)
+        final_model = classifier.set_params(**gs_best.best_params_)
+
+        cv_results = cross_validate(final_model, X, y, cv=cv, scoring=scoring)
+        print(f"{scoring} (After): {round(cv_results['test_score'].mean(), 4)}")
+        print(f"{name} best params: {gs_best.best_params_}", end="\n\n")
+        best_models[name] = final_model
+    return best_models
+
+best_models = hyperparameter_optimization(X, y)
+
+
+def voting_classifier(best_models, X, y):
+    print("Voting Classifier...")
+
+    voting_clf = VotingClassifier(estimators=[('KNN', best_models["KNN"]),
+                                              ('RF', best_models["RF"]),
+                                              ('LightGBM', best_models["LightGBM"])],
+                                  voting='soft').fit(X, y)
+
+    cv_results = cross_validate(voting_clf, X, y, cv=3, scoring=["accuracy", "f1", "roc_auc"])
+    print(f"Accuracy: {cv_results['test_accuracy'].mean()}")
+    print(f"F1Score: {cv_results['test_f1'].mean()}")
+    print(f"ROC_AUC: {cv_results['test_roc_auc'].mean()}")
+    return voting_clf
+
+voting_clf = voting_classifier(best_models, X, y)
 
 def correlation_matrix(df, cols):
     fig = plt.gcf()
