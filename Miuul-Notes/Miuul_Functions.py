@@ -641,3 +641,15 @@ def predict_with_rules(x):
                                 ) if x[4] <= 629.5 else 1 if x[6] <= 0.4124999940395355 else 0)
 
 
+def main():
+    df = pd.read_csv("datasets/diabetes.csv")
+    X, y = diabetes_data_prep(df)
+    base_models(X, y)
+    best_models = hyperparameter_optimization(X, y)
+    voting_clf = voting_classifier(best_models, X, y)
+    joblib.dump(voting_clf, "voting_clf.pkl")
+    return voting_clf
+
+if __name__ == "__main__":
+    print("İşlem başladı")
+    main()
